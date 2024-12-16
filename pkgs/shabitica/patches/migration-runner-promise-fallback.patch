@@ -1,0 +1,42 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Sat Oct 13 02:40:20 2018 +0200
+
+    migration-runner: Don't expect a Promise
+    
+    The migration runner got refactored a bit[1] and the processUsers
+    function now is expected to return a Promise. While this works for newer
+    migrations, this will fail for older migration scripts.
+    
+    In order to support older migrations, we now use Promise.resolve()
+    instead, so that if the function doesn't return a Promise the migration
+    will run fine regardless.
+    
+    [1]: https://github.com/HabitRPG/habitica/commit/70192e493568a6aebca926d
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: migration-runner-promise-fallback.patch
+
+diff --git a/migrations/migration-runner.js b/migrations/migration-runner.js
+index 38901eda7a..245097a105 100644
+--- a/migrations/migration-runner.js
++++ b/migrations/migration-runner.js
+@@ -18,11 +18,13 @@ setUpServer();
+ 
+ // Replace this with your migration
+ const processUsers = require('@migrationScript@');
+-processUsers()
+-  .then(function success () {
++let result = processUsers();
++if (Promise.resolve(result) === result) {
++  result.then(function success () {
+     process.exit(0);
+   })
+-  .catch(function failure (err) {
+-    console.log(err);
+-    process.exit(1);
+-  });
++    .catch(function failure (err) {
++      console.log(err);
++      process.exit(1);
++    });
++}

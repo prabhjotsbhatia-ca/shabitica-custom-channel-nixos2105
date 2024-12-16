@@ -1,0 +1,49 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Sat Jun 23 14:25:29 2018 +0200
+
+    Allow to purchase gems using gold from menu
+    
+    The icon was already there so far but instead of getting to the
+    buyModal, it instead showed a modal to purchase gems for real money.
+    
+    All of our subscriptions are free so we instead reuse the same icon to
+    purchase gems using gold.
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: buy-gems-via-menu.patch
+
+diff --git a/website/client/components/header/menu.vue b/website/client/components/header/menu.vue
+index 1aa0759a54..b167999eec 100644
+--- a/website/client/components/header/menu.vue
++++ b/website/client/components/header/menu.vue
+@@ -71,7 +71,7 @@ div
+           .top-menu-icon.svg-icon(v-html="icons.hourglasses", v-b-tooltip.hover.bottom="$t('mysticHourglassesTooltip')")
+           span {{ userHourglasses }}
+         .item-with-icon
+-          a.top-menu-icon.svg-icon.gem(:aria-label="$t('gems')", href="#buy-gems" v-html="icons.gem", @click.prevent='showBuyGemsModal("gems")', v-b-tooltip.hover.bottom="$t('gems')")
++          a.top-menu-icon.svg-icon.gem(:aria-label="$t('gems')", href="#buy-gems" v-html="icons.gem", @click.prevent='showBuyGemsModal', v-b-tooltip.hover.bottom="$t('gems')")
+           span {{userGems}}
+         .item-with-icon.gold
+           .top-menu-icon.svg-icon(:aria-label="$t('gold')", v-html="icons.gold", v-b-tooltip.hover.bottom="$t('gold')")
+@@ -403,7 +403,7 @@ import profileModal from '../userMenu/profileModal';
+ import reportFlagModal from '../chat/reportFlagModal';
+ import sync from 'client/mixins/sync';
+ import userDropdown from './userDropdown';
+-
++import getItemInfo from 'common/script/libs/getItemInfo';
+ 
+ export default {
+   components: {
+@@ -466,9 +466,9 @@ export default {
+     openPartyModal () {
+       this.$root.$emit('bv::show::modal', 'create-party-modal');
+     },
+-    showBuyGemsModal (startingPage) {
+-      this.$store.state.gemModalOptions.startingPage = startingPage;
+-      this.$root.$emit('bv::show::modal', 'buy-gems', {alreadyTracked: true});
++    showBuyGemsModal () {
++      let gemItem = getItemInfo(this.user, 'gem');
++      this.$root.$emit('buyModal::showItem', gemItem);
+     },
+     dropdownDesktop (hover) {
+       if (this.isDesktop() && hover.target.classList.contains('droppable')) {

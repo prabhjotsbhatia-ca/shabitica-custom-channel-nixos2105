@@ -1,0 +1,42 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Thu Mar 29 09:49:42 2018 +0200
+
+    cron: Correctly import moment-recur
+    
+    This is tracked upstream here:
+    
+    https://github.com/c-trimm/moment-recur/issues/88
+    
+    However, there is no fix yet, but fortunately the moment-recur module
+    re-exports the modified moment module, so we can fix this simply by
+    requiring moment-recur instead of moment.
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: fix-moment-recur-import.patch
+
+diff --git a/test/common/shouldDo.test.js b/test/common/shouldDo.test.js
+index dedcaa4951..f0ea2f8a60 100644
+--- a/test/common/shouldDo.test.js
++++ b/test/common/shouldDo.test.js
+@@ -1,6 +1,5 @@
+ import { shouldDo, DAY_MAPPING } from '../../website/common/script/cron';
+-import moment from 'moment';
+-import 'moment-recur';
++import moment from 'moment-recur';
+ 
+ describe('shouldDo', () => {
+   let day, dailyTask;
+diff --git a/website/common/script/cron.js b/website/common/script/cron.js
+index b93df4b80e..ca6ca36676 100644
+--- a/website/common/script/cron.js
++++ b/website/common/script/cron.js
+@@ -6,8 +6,7 @@
+  */
+ import defaults from 'lodash/defaults';
+ import invert from 'lodash/invert';
+-import moment from 'moment';
+-import 'moment-recur';
++import moment from 'moment-recur';
+ 
+ export const DAY_MAPPING = {
+   0: 'su',

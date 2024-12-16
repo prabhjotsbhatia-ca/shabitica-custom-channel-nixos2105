@@ -1,0 +1,55 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Tue Mar 27 05:37:27 2018 +0200
+
+    Always allow to change the group leader
+    
+    We have free group plans anyway, so it really doesn't make much sense to
+    prevent a group leader to hand over leadership to another person.
+    
+    For the official instance something like this would make sense, because
+    the other person didn't necessarily pay or is able to pay for the group
+    plan, but on our instance the group plan is free.
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: always-permit-group-leader-change.patch
+
+diff --git a/website/server/controllers/api-v3/groups.js b/website/server/controllers/api-v3/groups.js
+index dc35d5db83..6cbaf0f342 100644
+--- a/website/server/controllers/api-v3/groups.js
++++ b/website/server/controllers/api-v3/groups.js
+@@ -394,8 +394,6 @@ api.updateGroup = {
+     if (group.leader !== user._id && group.type === 'party') throw new NotAuthorized(res.t('messageGroupOnlyLeaderCanUpdate'));
+     else if (group.leader !== user._id && !user.contributor.admin) throw new NotAuthorized(res.t('messageGroupOnlyLeaderCanUpdate'));
+ 
+-    if (req.body.leader !== user._id && group.hasNotCancelled()) throw new NotAuthorized(res.t('cannotChangeLeaderWithActiveGroupPlan'));
+-
+     _.assign(group, _.merge(group.toObject(), Group.sanitizeUpdate(req.body)));
+ 
+     let savedGroup = await group.save();
+diff --git a/website/server/models/group.js b/website/server/models/group.js
+index 8b9133d85e..2fd7b7a8e6 100644
+--- a/website/server/models/group.js
++++ b/website/server/models/group.js
+@@ -22,7 +22,6 @@ import {
+ import {
+   InternalServerError,
+   BadRequest,
+-  NotAuthorized,
+ } from '../libs/errors';
+ import baseModel from '../libs/baseModel';
+ import { sendTxn as sendTxnEmail } from '../libs/email';
+@@ -1221,14 +1220,6 @@ schema.methods.leave = async function leaveGroup (user, keep = 'keep-all', keepC
+   let group = this;
+   let update = {};
+ 
+-  if (group.memberCount <= 1 && group.privacy === 'private' && group.hasNotCancelled()) {
+-    throw new NotAuthorized(shared.i18n.t('cannotDeleteActiveGroup'));
+-  }
+-
+-  if (group.leader === user._id && group.hasNotCancelled()) {
+-    throw new NotAuthorized(shared.i18n.t('leaderCannotLeaveGroupWithActiveGroup'));
+-  }
+-
+   // only remove user from challenges if it's set to leave-challenges
+   if (keepChallenges === 'leave-challenges') {
+     let challenges = await Challenge.find({

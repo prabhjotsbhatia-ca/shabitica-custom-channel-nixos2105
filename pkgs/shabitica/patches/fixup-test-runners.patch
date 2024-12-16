@@ -1,0 +1,154 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Mon Apr 2 09:23:06 2018 +0200
+
+    Fix paths and buffering of test runners
+    
+    Those paths assume that we have a node_modules directory, however the
+    executables for istanbul and mocha are in PATH instead, so let's just
+    strip the dirname.
+    
+    The maxBuffer options are to limit the amount of bytes allowed to
+    stdout/stderr. IMHO these just cause confusion whenever a test suddenly
+    fails with no apparent error.
+    
+    Unfortunately there is no way to disable the limit altogether, so we
+    just set this to a large value (1 GiB).
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: fixup-test-runners.patch
+
+diff --git a/gulp/gulp-tests.js b/gulp/gulp-tests.js
+index 7294a90574..80b331ec17 100644
+--- a/gulp/gulp-tests.js
++++ b/gulp/gulp-tests.js
+@@ -17,7 +17,7 @@ const TEST_DB_URI       = nconf.get('TEST_DB_URI');
+ const SANITY_TEST_COMMAND = 'npm run test:sanity';
+ const COMMON_TEST_COMMAND = 'npm run test:common';
+ const CONTENT_TEST_COMMAND = 'npm run test:content';
+-const CONTENT_OPTIONS = {maxBuffer: 1024 * 500};
++const CONTENT_OPTIONS = {maxBuffer: 1073741824};
+ 
+ /* Helper methods for reporting test summary */
+ let testResults = [];
+@@ -56,7 +56,7 @@ gulp.task('test:prepare:mongo', (cb) => {
+ 
+ gulp.task('test:prepare:server', gulp.series('test:prepare:mongo', (done) => {
+   if (!server) {
+-    server = exec(testBin('node ./website/server/index.js', `NODE_DB_URI=${TEST_DB_URI} PORT=${TEST_SERVER_PORT}`), (error, stdout, stderr) => {
++    server = exec(testBin('node ./website/server/index.js', `NODE_DB_URI=${TEST_DB_URI} PORT=${TEST_SERVER_PORT}`), CONTENT_OPTIONS, (error, stdout, stderr) => {
+       if (error) {
+         throw new Error(`Problem with the server: ${error}`);
+       }
+@@ -79,6 +79,7 @@ gulp.task('test:prepare', gulp.series(
+ gulp.task('test:sanity', (cb) => {
+   let runner = exec(
+     testBin(SANITY_TEST_COMMAND),
++    CONTENT_OPTIONS,
+     (err) => {
+       if (err) {
+         process.exit(1);
+@@ -92,6 +93,7 @@ gulp.task('test:sanity', (cb) => {
+ gulp.task('test:common', gulp.series('test:prepare:build', (cb) => {
+   let runner = exec(
+     testBin(COMMON_TEST_COMMAND),
++    CONTENT_OPTIONS,
+     (err) => {
+       if (err) {
+         process.exit(1);
+@@ -103,7 +105,7 @@ gulp.task('test:common', gulp.series('test:prepare:build', (cb) => {
+ }));
+ 
+ gulp.task('test:common:clean', (cb) => {
+-  pipe(exec(testBin(COMMON_TEST_COMMAND), () => cb()));
++  pipe(exec(testBin(COMMON_TEST_COMMAND), CONTENT_OPTIONS, () => cb()));
+ });
+ 
+ gulp.task('test:common:watch', gulp.series('test:common:clean', () => {
+@@ -113,6 +115,7 @@ gulp.task('test:common:watch', gulp.series('test:common:clean', () => {
+ gulp.task('test:common:safe', gulp.series('test:prepare:build', (cb) => {
+   let runner = exec(
+     testBin(COMMON_TEST_COMMAND),
++    CONTENT_OPTIONS,
+     (err, stdout) => { // eslint-disable-line handle-callback-err
+       testResults.push({
+         suite: 'Common Specs\t',
+@@ -167,7 +170,8 @@ gulp.task('test:content:safe', gulp.series('test:prepare:build', (cb) => {
+ 
+ gulp.task('test:api:unit', (done) => {
+   let runner = exec(
+-    testBin('istanbul cover --dir coverage/api-unit node_modules/mocha/bin/_mocha -- test/api/unit --recursive --require ./test/helpers/start-server'),
++    testBin('istanbul cover --dir coverage/api-unit mocha -- test/api/unit --recursive --require ./test/helpers/start-server'),
++    CONTENT_OPTIONS,
+     (err) => {
+       if (err) {
+         process.exit(1);
+@@ -185,8 +189,8 @@ gulp.task('test:api:unit:watch', () => {
+ 
+ gulp.task('test:api-v3:integration', (done) => {
+   let runner = exec(
+-    testBin('istanbul cover --dir coverage/api-v3-integration --report lcovonly node_modules/mocha/bin/_mocha -- test/api/v3/integration --recursive --require ./test/helpers/start-server'),
+-    {maxBuffer: 500 * 1024},
++    testBin('istanbul cover --dir coverage/api-v3-integration --report lcovonly mocha -- test/api/v3/integration --recursive --require ./test/helpers/start-server'),
++    CONTENT_OPTIONS,
+     (err) => {
+       if (err) {
+         process.exit(1);
+@@ -208,7 +212,7 @@ gulp.task('test:api-v3:integration:watch', () => {
+ gulp.task('test:api-v3:integration:separate-server', (done) => {
+   let runner = exec(
+     testBin('mocha test/api/v3/integration --recursive --require ./test/helpers/start-server', 'LOAD_SERVER=0'),
+-    {maxBuffer: 500 * 1024},
++    CONTENT_OPTIONS,
+     (err) => done(err)
+   );
+ 
+@@ -217,8 +221,8 @@ gulp.task('test:api-v3:integration:separate-server', (done) => {
+ 
+ gulp.task('test:api-v4:integration', (done) => {
+   let runner = exec(
+-    testBin('istanbul cover --dir coverage/api-v4-integration --report lcovonly node_modules/mocha/bin/_mocha -- test/api/v4 --recursive --require ./test/helpers/start-server'),
+-    {maxBuffer: 500 * 1024},
++    testBin('istanbul cover --dir coverage/api-v4-integration --report lcovonly mocha -- test/api/v4 --recursive --require ./test/helpers/start-server'),
++    CONTENT_OPTIONS,
+     (err) => {
+       if (err) {
+         process.exit(1);
+@@ -233,7 +237,7 @@ gulp.task('test:api-v4:integration', (done) => {
+ gulp.task('test:api-v4:integration:separate-server', (done) => {
+   let runner = exec(
+     testBin('mocha test/api/v4 --recursive --require ./test/helpers/start-server', 'LOAD_SERVER=0'),
+-    {maxBuffer: 500 * 1024},
++    CONTENT_OPTIONS,
+     (err) => done(err)
+   );
+ 
+diff --git a/package.json b/package.json
+index 01c208c60b..88d6cd993c 100644
+--- a/package.json
++++ b/package.json
+@@ -112,9 +112,9 @@
+     "test:api-v3:integration:separate-server": "NODE_ENV=test gulp test:api-v3:integration:separate-server",
+     "test:api-v4:integration": "gulp test:api-v4:integration",
+     "test:api-v4:integration:separate-server": "NODE_ENV=test gulp test:api-v4:integration:separate-server",
+-    "test:sanity": "istanbul cover --dir coverage/sanity --report lcovonly node_modules/mocha/bin/_mocha -- test/sanity --recursive",
+-    "test:common": "istanbul cover --dir coverage/common --report lcovonly node_modules/mocha/bin/_mocha -- test/common --recursive",
+-    "test:content": "istanbul cover --dir coverage/content --report lcovonly node_modules/mocha/bin/_mocha -- test/content --recursive",
++    "test:sanity": "istanbul cover --dir coverage/sanity --report lcovonly mocha -- test/sanity --recursive",
++    "test:common": "istanbul cover --dir coverage/common --report lcovonly mocha -- test/common --recursive",
++    "test:content": "istanbul cover --dir coverage/content --report lcovonly mocha -- test/content --recursive",
+     "test:nodemon": "gulp test:nodemon",
+     "coverage": "COVERAGE=true mocha --require register-handlers.js --reporter html-cov > coverage.html; open coverage.html",
+     "sprites": "gulp sprites:compile",
+diff --git a/test/client/e2e/runner.js b/test/client/e2e/runner.js
+index 4c3829f785..4d40c020d4 100644
+--- a/test/client/e2e/runner.js
++++ b/test/client/e2e/runner.js
+@@ -18,7 +18,7 @@ if (opts.indexOf('--env') === -1) {
+ }
+ 
+ const spawn = require('cross-spawn');
+-const runner = spawn('./node_modules/.bin/nightwatch', opts, { stdio: 'inherit' });
++const runner = spawn('nightwatch', opts, { stdio: 'inherit' });
+ 
+ runner.on('exit', function (code) {
+   server.close();

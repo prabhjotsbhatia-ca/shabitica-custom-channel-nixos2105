@@ -1,0 +1,32 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Wed Mar 28 08:26:40 2018 +0200
+
+    server: Remove static middleware
+    
+    We do have a web server which is serving static files, so let's make
+    sure that express doesn't serve any static files, mainly because I don't
+    trust it very much to handle directory traversal very well.
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: remove-static-middleware.patch
+
+diff --git a/website/server/middlewares/index.js b/website/server/middlewares/index.js
+index 1c5894e469..745ac8f7cb 100644
+--- a/website/server/middlewares/index.js
++++ b/website/server/middlewares/index.js
+@@ -6,7 +6,6 @@ import nconf from 'nconf';
+ import morgan from 'morgan';
+ import cookieSession from 'cookie-session';
+ import cors from './cors';
+-import staticMiddleware from './static';
+ import domainMiddleware from './domain';
+ import mongoose from 'mongoose';
+ import compression from 'compression';
+@@ -98,7 +97,6 @@ module.exports = function attachMiddlewares (app, server) {
+   app.use('/api/v2', v2);
+   app.use('/api/v1', v1);
+   app.use(appRoutes); // the main app, also setup top-level routes
+-  staticMiddleware(app);
+ 
+   app.use(notFoundHandler);
+ 

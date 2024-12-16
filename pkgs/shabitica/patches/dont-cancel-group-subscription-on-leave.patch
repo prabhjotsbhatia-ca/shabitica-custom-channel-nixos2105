@@ -1,0 +1,147 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Mon Apr 2 04:50:12 2018 +0200
+
+    Do not cancel group subscription if a user leaves
+    
+    We don't want to make a big difference between groups with a plan and a
+    group without one because everything on the standalone version is free.
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: dont-cancel-group-subscription-on-leave.patch
+
+diff --git a/test/api/unit/models/group.test.js b/test/api/unit/models/group.test.js
+index 1470f0ad5d..992541d39a 100644
+--- a/test/api/unit/models/group.test.js
++++ b/test/api/unit/models/group.test.js
+@@ -1166,10 +1166,14 @@ describe('Group Model', () => {
+       });
+ 
+       it('deletes a private group when the last member leaves and a subscription is active', async () => {
+-        party.memberCount = 1;
+         party.purchased.plan.customerId = '110002222333';
++        await party.save();
+ 
+         await party.leave(participatingMember);
++        await party.leave(sleepingParticipatingMember);
++        await party.leave(questLeader);
++        await party.leave(nonParticipatingMember);
++        await party.leave(undecidedMember);
+ 
+         party = await Group.findOne({_id: party._id});
+         expect(party).to.not.exist;
+@@ -1178,6 +1182,7 @@ describe('Group Model', () => {
+       it('allows a leader to leave a group with an active subscription', async () => {
+         party.memberCount = 2;
+         party.purchased.plan.customerId = '110002222333';
++        await party.save();
+ 
+         await party.leave(questLeader);
+ 
+diff --git a/test/api/v3/integration/groups/POST-groups_groupId_leave.js b/test/api/v3/integration/groups/POST-groups_groupId_leave.js
+index 65d76f4714..9eb8e166bd 100644
+--- a/test/api/v3/integration/groups/POST-groups_groupId_leave.js
++++ b/test/api/v3/integration/groups/POST-groups_groupId_leave.js
+@@ -10,8 +10,6 @@ import { v4 as generateUUID } from 'uuid';
+ import {
+   each,
+ } from 'lodash';
+-import { model as User } from '../../../../../website/server/models/user';
+-import * as payments from '../../../../../website/server/libs/payments/payments';
+ 
+ describe('POST /groups/:groupId/leave', () => {
+   let typesOfGroups = {
+@@ -275,71 +273,4 @@ describe('POST /groups/:groupId/leave', () => {
+       expect(userWithNonExistentParty.party).to.eql({});
+     });
+   });
+-
+-  each(typesOfGroups, (groupDetails, groupType) => {
+-    context(`Leaving a group plan when the group is a ${groupType}`, () => {
+-      let groupWithPlan;
+-      let leader;
+-      let member;
+-
+-      beforeEach(async () => {
+-        let { group, groupLeader, members } = await createAndPopulateGroup({
+-          groupDetails,
+-          members: 1,
+-        });
+-        leader = groupLeader;
+-        member = members[0];
+-        groupWithPlan = group;
+-        let userWithFreePlan = await User.findById(leader._id).exec();
+-
+-        // Create subscription
+-        let paymentData = {
+-          user: userWithFreePlan,
+-          groupId: groupWithPlan._id,
+-          sub: {
+-            key: 'basic_3mo',
+-          },
+-          customerId: 'customer-id',
+-          paymentMethod: 'Payment Method',
+-          headers: {
+-            'x-client': 'habitica-web',
+-            'user-agent': '',
+-          },
+-        };
+-        await payments.createSubscription(paymentData);
+-        await member.sync();
+-      });
+-
+-      it('cancels the free subscription', async () => {
+-        expect(member.purchased.plan.planId).to.equal('group_plan_auto');
+-        expect(member.purchased.plan.dateTerminated).to.not.exist;
+-
+-        // Leave
+-        await member.post(`/groups/${groupWithPlan._id}/leave`);
+-        await member.sync();
+-        expect(member.purchased.plan.dateTerminated).to.exist;
+-      });
+-
+-      it('preserves the free subscription when leaving a any other group without a plan', async () => {
+-        // Joining a guild without a group plan
+-        let { group: groupWithNoPlan } = await createAndPopulateGroup({
+-          groupDetails: {
+-            name: 'Group Without Plan',
+-            type: 'guild',
+-            privacy: 'public',
+-          },
+-        });
+-
+-        await member.post(`/groups/${groupWithNoPlan._id}/join`);
+-        await member.sync();
+-        expect(member.purchased.plan.planId).to.equal('group_plan_auto');
+-        expect(member.purchased.plan.dateTerminated).to.not.exist;
+-
+-        // Leaving the guild without a group plan
+-        await member.post(`/groups/${groupWithNoPlan._id}/leave`);
+-        await member.sync();
+-        expect(member.purchased.plan.dateTerminated).to.not.exist;
+-      });
+-    });
+-  });
+ });
+diff --git a/website/server/models/group.js b/website/server/models/group.js
+index 2fd7b7a8e6..3482311378 100644
+--- a/website/server/models/group.js
++++ b/website/server/models/group.js
+@@ -14,7 +14,6 @@ import {
+ import * as Tasks from './task';
+ import validator from 'validator';
+ import { removeFromArray } from '../libs/collectionManipulators';
+-import payments from '../libs/payments/payments';
+ import {
+   groupChatReceivedWebhook,
+   questActivityWebhook,
+@@ -1257,10 +1256,6 @@ schema.methods.leave = async function leaveGroup (user, keep = 'keep-all', keepC
+     update.$unset = {[`quest.members.${user._id}`]: 1};
+   }
+ 
+-  if (group.purchased.plan.customerId) {
+-    promises.push(payments.cancelGroupSubscriptionForUser(user, this));
+-  }
+-
+   // If user is the last one in group and group is private, delete it
+   if (group.memberCount <= 1 && group.privacy === 'private') {
+     // double check the member count is correct so we don't accidentally delete a group that still has users in it

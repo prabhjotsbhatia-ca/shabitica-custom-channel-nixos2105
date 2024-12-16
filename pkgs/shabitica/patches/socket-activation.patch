@@ -1,0 +1,44 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Tue Mar 27 05:37:06 2018 +0200
+
+    Support for systemd socket activation
+    
+    This adds another dependency to make support for socket activation very
+    trivial.
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: socket-activation.patch
+
+diff --git a/package.json b/package.json
+index ce88b86a20..01c208c60b 100644
+--- a/package.json
++++ b/package.json
+@@ -76,6 +76,7 @@
+     "svg-url-loader": "^3.0.0",
+     "svgo": "^1.2.0",
+     "svgo-loader": "^2.1.0",
++    "systemd-socket": "^0.0.0",
+     "update": "^0.7.4",
+     "upgrade": "^1.1.0",
+     "url-loader": "^1.0.0",
+diff --git a/website/server/server.js b/website/server/server.js
+index 6f717f7116..d704cdb1a1 100644
+--- a/website/server/server.js
++++ b/website/server/server.js
+@@ -2,6 +2,7 @@ import nconf from 'nconf';
+ import logger from './libs/logger';
+ import express from 'express';
+ import http from 'http';
++import systemdSocket from 'systemd-socket';
+ 
+ const server = http.createServer();
+ const app = express();
+@@ -26,7 +27,7 @@ import './models/user';
+ attachMiddlewares(app, server);
+ 
+ server.on('request', app);
+-server.listen(app.get('port'), () => {
++server.listen(systemdSocket() || app.get('port'), () => {
+   logger.info(`Express server listening on port ${app.get('port')}`);
+ });
+ 

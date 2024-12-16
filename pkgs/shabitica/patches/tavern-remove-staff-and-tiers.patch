@@ -1,0 +1,236 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Sat Mar 31 01:16:24 2018 +0200
+
+    Remove staff links and player tiers in tavern
+    
+    These are only relevant for the official instance and the links are dead
+    links anyway.
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: tavern-remove-staff-and-tiers.patch
+
+diff --git a/website/client/components/groups/tavern.vue b/website/client/components/groups/tavern.vue
+index e37284fec1..522a3b4f50 100644
+--- a/website/client/components/groups/tavern.vue
++++ b/website/client/components/groups/tavern.vue
+@@ -87,16 +87,6 @@
+           li(v-once) {{ $t('sleepBullet4') }}
+         button.btn.btn-secondary.pause-button(v-if='!user.preferences.sleep', @click='toggleSleep()', v-once) {{ $t('pauseDailies') }}
+         button.btn.btn-secondary.pause-button(v-if='user.preferences.sleep', @click='toggleSleep()', v-once) {{ $t('unpauseDailies') }}
+-    .px-3
+-      sidebar-section(:title="$t('staffAndModerators')")
+-        .row
+-          .col-4.staff(v-for='user in staff', :class='{staff: user.type === "Staff", moderator: user.type === "Moderator", bailey: user.name === "It\'s Bailey"}')
+-            div
+-              router-link.title(:to="{'name': 'userProfile', 'params': {'userId': user.uuid}}") {{user.name}}
+-              .svg-icon.staff-icon(v-html="icons.tierStaff", v-if='user.type === "Staff"')
+-              .svg-icon.mod-icon(v-html="icons.tierMod", v-if='user.type === "Moderator" && user.name !== "It\'s Bailey"')
+-              .svg-icon.npc-icon(v-html="icons.tierNPC", v-if='user.name === "It\'s Bailey"')
+-            .type {{user.type}}
+ 
+       sidebar-section(:title="$t('helpfulLinks')")
+         ul
+@@ -108,42 +98,6 @@
+             a(href='http://habitica.fandom.com/wiki/Habitica_Wiki' target='_blank', v-once) {{ $t('wiki') }}
+           li
+             a(href='https://oldgods.net/habitrpg/habitrpg_user_data_display.html', target='_blank', v-once) {{ $t('dataDisplayTool') }}
+-
+-      sidebar-section(:title="$t('playerTiers')")
+-        .row
+-          .col-12
+-            p(v-once) {{ $t('playerTiersDesc') }}
+-            ul.tier-list
+-              li.tier1(v-once)
+-               | {{ $t('tier1') }}
+-               .svg-icon.tier1-icon(v-html="icons.tier1")
+-              li.tier2(v-once)
+-                | {{ $t('tier2') }}
+-                .svg-icon.tier2-icon(v-html="icons.tier2")
+-              li.tier3(v-once)
+-                | {{ $t('tier3') }}
+-                .svg-icon.tier3-icon(v-html="icons.tier3")
+-              li.tier4(v-once)
+-                | {{ $t('tier4') }}
+-                .svg-icon.tier4-icon(v-html="icons.tier4")
+-              li.tier5(v-once)
+-                | {{ $t('tier5') }}
+-                .svg-icon.tier5-icon(v-html="icons.tier5")
+-              li.tier6(v-once)
+-                | {{ $t('tier6') }}
+-                .svg-icon.tier6-icon(v-html="icons.tier6")
+-              li.tier7(v-once)
+-                | {{ $t('tier7') }}
+-                .svg-icon.tier7-icon(v-html="icons.tier7")
+-              li.moderator(v-once)
+-                | {{ $t('tierModerator') }}
+-                .svg-icon.mod-icon(v-html="icons.tierMod")
+-              li.staff(v-once)
+-                | {{ $t('tierStaff') }}
+-                .svg-icon.staff-icon(v-html="icons.tierStaff")
+-              li.npc(v-once)
+-                | {{ $t('tierNPC') }}
+-                .svg-icon.npc-icon(v-html="icons.tierNPC")
+ </template>
+ 
+ <style lang='scss' scoped>
+@@ -190,26 +144,6 @@
+     margin-left: .5em;
+   }
+ 
+-  .tier1-icon, .tier2-icon {
+-    width: 11px;
+-  }
+-
+-  .tier5-icon, .tier6-icon {
+-    width: 8px;
+-  }
+-
+-  .tier7-icon {
+-    width: 12px;
+-  }
+-
+-  .mod-icon {
+-    width: 13px;
+-  }
+-
+-  .npc-icon {
+-    width: 8px;
+-  }
+-
+   .boss-icon {
+     width: 16px;
+     margin-top: .1em;
+@@ -220,88 +154,6 @@
+     width: 48px;
+   }
+ 
+-  .staff {
+-    margin-bottom: 1em;
+-
+-    .staff-icon  {
+-      width: 11px;
+-    }
+-
+-    .title {
+-      color: #6133b4;
+-      font-weight: bold;
+-      display: inline-block;
+-    }
+-  }
+-
+-  .tier-list {
+-    list-style-type: none;
+-    padding: 0;
+-    width: 98%;
+-
+-    li {
+-      border-radius: 2px;
+-      background-color: #edecee;
+-      border: solid 1px #c3c0c7;
+-      text-align: center;
+-      padding: 1em;
+-      margin-bottom: 1em;
+-      font-weight: bold;
+-    }
+-
+-    .tier1 {
+-      color: #c42870;
+-    }
+-
+-    .tier2 {
+-      color: #b01515;
+-    }
+-
+-    .tier3 {
+-      color: #d70e14;
+-    }
+-
+-    .tier4 {
+-      color: #c24d00;
+-    }
+-
+-    .tier5 {
+-      color: #9e650f;
+-    }
+-
+-    .tier6 {
+-      color: #2b8363;
+-    }
+-
+-    .tier7 {
+-      color: #167e87;
+-    }
+-
+-    .tier8, .moderator {
+-      color: #277eab;
+-    }
+-
+-    .tier9, .staff {
+-      color: #6133b4;
+-    }
+-
+-    .npc {
+-      color: $black;
+-    }
+-  }
+-
+-  .staff .title {
+-    color: #6133b4;
+-  }
+-
+-  .moderator .title {
+-    color: #277eab;
+-  }
+-
+-  .bailey .title {
+-    color: $black;
+-  }
+-
+   .boss-section {
+     padding: 1.75em;
+   }
+@@ -431,19 +283,7 @@ import questBackground from 'assets/svg/quest-background-border.svg';
+ import rageIcon from 'assets/svg/rage.svg';
+ import swordIcon from 'assets/svg/sword.svg';
+ 
+-import tier1 from 'assets/svg/tier-1.svg';
+-import tier2 from 'assets/svg/tier-2.svg';
+-import tier3 from 'assets/svg/tier-3.svg';
+-import tier4 from 'assets/svg/tier-4.svg';
+-import tier5 from 'assets/svg/tier-5.svg';
+-import tier6 from 'assets/svg/tier-6.svg';
+-import tier7 from 'assets/svg/tier-7.svg';
+-import tierMod from 'assets/svg/tier-mod.svg';
+-import tierNPC from 'assets/svg/tier-npc.svg';
+-import tierStaff from 'assets/svg/tier-staff.svg';
+-
+ import quests from 'common/script/content/quests';
+-import staffList from '../../libs/staffList';
+ 
+ export default {
+   components: {
+@@ -464,16 +304,6 @@ export default {
+         questBackground,
+         rageIcon,
+         swordIcon,
+-        tier1,
+-        tier2,
+-        tier3,
+-        tier4,
+-        tier5,
+-        tier6,
+-        tier7,
+-        tierMod,
+-        tierNPC,
+-        tierStaff,
+       }),
+       group: {
+         chat: [],
+@@ -481,7 +311,6 @@ export default {
+       sections: {
+         worldBoss: true,
+       },
+-      staff: staffList,
+     };
+   },
+   computed: {

@@ -1,0 +1,183 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Sat Mar 31 00:52:13 2018 +0200
+
+    Remove links to irrelevant external sites
+    
+    There are a lot of links to external sites that are really not relevant
+    when running a self-hosted instance. For example the Chrome plugin,
+    Beeminder etc. are only referring to habitica.com so users can't use it
+    as-is.
+    
+    Then there are a few references to Trello tickets, which is also
+    something we can't easily change or adapt to our fork, so we get rid of
+    them.
+    
+    The official instance also has a range of guilds that are referenced
+    within the source. These guilds do not exist on a self-hosted instance,
+    so let's remove them as well.
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: remove-external-links.patch
+
+diff --git a/website/client/components/groups/tavern.vue b/website/client/components/groups/tavern.vue
+index bbdfb4f9ac..e37284fec1 100644
+--- a/website/client/components/groups/tavern.vue
++++ b/website/client/components/groups/tavern.vue
+@@ -101,23 +101,13 @@
+       sidebar-section(:title="$t('helpfulLinks')")
+         ul
+           li
+-            router-link(to="/groups/guild/f2db2a7f-13c5-454d-b3ee-ea1f5089e601") {{ $t('lookingForGroup') }}
+-          li
+-           router-link(to='/static/faq', v-once) {{ $t('faq') }}
++            router-link(to='/static/faq', v-once) {{ $t('faq') }}
+           li
+             a(href='', v-html="$t('glossary')")
+           li
+             a(href='http://habitica.fandom.com/wiki/Habitica_Wiki' target='_blank', v-once) {{ $t('wiki') }}
+           li
+             a(href='https://oldgods.net/habitrpg/habitrpg_user_data_display.html', target='_blank', v-once) {{ $t('dataDisplayTool') }}
+-          li
+-            router-link(to="/groups/guild/a29da26b-37de-4a71-b0c6-48e72a900dac") {{ $t('reportProblem') }}
+-          li
+-            a(href='https://trello.com/c/odmhIqyW/440-read-first-table-of-contents', target='_blank', v-once) {{ $t('requestFeature') }}
+-          li
+-            a(href='', v-html="$t('communityForum')")
+-          li
+-            router-link(to="/groups/guild/5481ccf3-5d2d-48a9-a871-70a7380cee5a") {{ $t('askQuestionGuild') }}
+ 
+       sidebar-section(:title="$t('playerTiers')")
+         .row
+diff --git a/website/client/components/hall/heroes.vue b/website/client/components/hall/heroes.vue
+index fe13b65723..376b599e99 100644
+--- a/website/client/components/hall/heroes.vue
++++ b/website/client/components/hall/heroes.vue
+@@ -25,10 +25,6 @@
+             label Contributor Tier
+             input.form-control(type='number', v-model='hero.contributor.level')
+             small 1-7 for normal contributors, 8 for moderators, 9 for staff. This determines which items, pets, and mounts are available, and name-tag coloring. Tiers 8 and 9 are automatically given admin status.
+-              |&nbsp;
+-              a(target='_blank', href='https://trello.com/c/wkFzONhE/277-contributor-gear') More details (1-7)
+-              |,&nbsp;
+-              a(target='_blank', href='https://github.com/HabitRPG/habitica/issues/3801') more details (8-9)
+           .form-group
+             label Contributions
+             textarea.form-control(cols=5, v-model='hero.contributor.contributions')
+diff --git a/website/client/components/header/menu.vue b/website/client/components/header/menu.vue
+index 1347b766d1..1aa0759a54 100644
+--- a/website/client/components/header/menu.vue
++++ b/website/client/components/header/menu.vue
+@@ -64,9 +64,6 @@ div
+           .topbar-dropdown
+             router-link.topbar-dropdown-item.dropdown-item(:to="{name: 'faq'}") {{ $t('faq') }}
+             router-link.topbar-dropdown-item.dropdown-item(:to="{name: 'overview'}") {{ $t('overview') }}
+-            router-link.topbar-dropdown-item.dropdown-item(to="/groups/guild/a29da26b-37de-4a71-b0c6-48e72a900dac") {{ $t('reportBug') }}
+-            router-link.topbar-dropdown-item.dropdown-item(to="/groups/guild/5481ccf3-5d2d-48a9-a871-70a7380cee5a") {{ $t('askAQuestion') }}
+-            a.topbar-dropdown-item.dropdown-item(href="https://trello.com/c/odmhIqyW/440-read-first-table-of-contents", target='_blank') {{ $t('requestAF') }}
+             a.topbar-dropdown-item.dropdown-item(href="http://habitica.fandom.com/wiki/Contributing_to_Habitica", target='_blank') {{ $t('contributing') }}
+             a.topbar-dropdown-item.dropdown-item(href="http://habitica.fandom.com/wiki/Habitica_Wiki", target='_blank') {{ $t('wiki') }}
+       .currency-tray.form-inline
+diff --git a/website/client/components/settings/api.vue b/website/client/components/settings/api.vue
+index 291c3640f8..ccacd0f280 100644
+--- a/website/client/components/settings/api.vue
++++ b/website/client/components/settings/api.vue
+@@ -15,27 +15,6 @@
+         pre.prettyprint.ml-4.mb-0(v-if="showApiToken") {{apiToken}}
+       p(v-html='$t("APITokenWarning", { hrefTechAssistanceEmail })')
+ 
+-    .section
+-      h3 {{ $t('thirdPartyApps') }}
+-      ul
+-        li
+-          a(target='_blank' href='https://www.beeminder.com/habitica') {{ $t('beeminder') }}
+-          br
+-          | {{ $t('beeminderDesc') }}
+-        li
+-          a(target='_blank' href='https://chrome.google.com/webstore/detail/habitrpg-chat-client/hidkdfgonpoaiannijofifhjidbnilbb') {{ $t('chromeChatExtension') }}
+-          br
+-          | {{ $t('chromeChatExtensionDesc') }}
+-        li
+-          a(target='_blank' :href='`https://oldgods.net/habitica/habitrpg_user_data_display.html?uuid=` + user._id') {{ $t('dataTool') }}
+-          br
+-          | {{ $t('dataToolDesc') }}
+-        li(v-html="$t('otherExtensions')")
+-          br
+-          | {{ $t('otherDesc') }}
+-
+-      hr
+-
+   .col-6
+     h2 {{ $t('webhooks') }}
+     p(v-html="$t('webhooksInfo')")
+diff --git a/website/client/components/static/faq.vue b/website/client/components/static/faq.vue
+index 7a8ca6792d..5000dac10c 100644
+--- a/website/client/components/static/faq.vue
++++ b/website/client/components/static/faq.vue
+@@ -3,7 +3,7 @@
+     .row
+       .col-12.col-md-6.offset-md-3
+         h1#faq-heading {{ $t('frequentlyAskedQuestions') }}
+-        .faq-question(v-for='(heading, index) in headings', :key="index")
++        .faq-question(v-for='(heading, index) in headings', :key="index", v-if="heading != ''")
+           h2(role="tab", v-b-toggle="heading", @click="handleClick($event)", variant="info") {{ $t(`faqQuestion${index}`) }}
+           b-collapse(:id="heading", :visible="isVisible(heading)", accordion="faq", role="tabpanel")
+             div.card-body(v-markdown="$t('webFaqAnswer' + index, replacements)")
+@@ -62,8 +62,8 @@
+         'character-classes',
+         'blue-mana-bar',
+         'monsters-quests',
+-        'gems',
+-        'bugs-features',
++        '', // No gems
++        '', // No bugs & feature requests
+         'world-boss',
+       ];
+ 
+@@ -76,11 +76,6 @@
+           wikiTechAssistanceEmail: `mailto:${TECH_ASSISTANCE_EMAIL}`,
+         },
+         visible: hash && headings.includes(hash) ? hash : null,
+-        // @TODO webFaqStillNeedHelp: {
+-        // linkStart: '[',
+-        // linkEnd: '](/groups/guild/5481ccf3-5d2d-48a9-a871-70a7380cee5a)',
+-        // },
+-        // "webFaqStillNeedHelp": "If you have a question that isn't on this list or on the [Wiki FAQ](http://habitica.fandom.com/wiki/FAQ), come ask in the <%= linkStart %>Habitica Help guild<%= linkEnd %>! We're happy to help."
+       };
+     },
+     methods: {
+diff --git a/website/client/components/static/overview.vue b/website/client/components/static/overview.vue
+index 5866630186..7fd00b1ec7 100644
+--- a/website/client/components/static/overview.vue
++++ b/website/client/components/static/overview.vue
+@@ -8,7 +8,6 @@
+         h3 {{ $t('step'+step) }}
+         p(v-markdown="$t('webStep'+step+'Text', stepVars[step])")
+         hr
+-      p(v-markdown="$t('overviewQuestions', {faqUrl: '/static/faq/', helpGuildUrl: '/groups/guild/5481ccf3-5d2d-48a9-a871-70a7380cee5a'})")
+ </template>
+ 
+ <style lang='scss'>
+diff --git a/website/server/controllers/api-v3/groups.js b/website/server/controllers/api-v3/groups.js
+index 6cbaf0f342..aa6b2f4f8a 100644
+--- a/website/server/controllers/api-v3/groups.js
++++ b/website/server/controllers/api-v3/groups.js
+@@ -714,7 +714,6 @@ function _sendMessageToRemoved (group, removedUser, message, isInGroup) {
+       {name: 'GROUP_NAME', content: group.name},
+       {name: 'MESSAGE', content: message},
+       {name: 'GUILDS_LINK', content: '/groups/discovery'},
+-      {name: 'PARTY_WANTED_GUILD', content: '/groups/guild/f2db2a7f-13c5-454d-b3ee-ea1f5089e601'},
+     ]);
+   }
+ }
+diff --git a/website/server/models/user/schema.js b/website/server/models/user/schema.js
+index 4e8c3db98e..700c5e51bc 100644
+--- a/website/server/models/user/schema.js
++++ b/website/server/models/user/schema.js
+@@ -119,7 +119,6 @@ let schema = new Schema({
+   },
+ 
+   contributor: {
+-    // 1-9, see https://trello.com/c/wkFzONhE/277-contributor-gear https://github.com/HabitRPG/habitica/issues/3801
+     level: {
+       $type: Number,
+       min: 0,

@@ -1,0 +1,365 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Tue Mar 27 05:37:09 2018 +0200
+
+    Grant lifetime subscriptions to everybody
+    
+    We do not use payment for our standalone instance, so let's actually
+    make sure that everybody is able to play the game without stumbling on
+    stuff they can't buy.
+    
+    Having a lifetime subscription allows players to buy gems for 20 gold in
+    the market.
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: subscriptions4all.patch
+
+diff --git a/test/api/unit/libs/payments/payments.test.js b/test/api/unit/libs/payments/payments.test.js
+index d33a0095cf..0b0fb3f42b 100644
+--- a/test/api/unit/libs/payments/payments.test.js
++++ b/test/api/unit/libs/payments/payments.test.js
+@@ -439,83 +439,6 @@ describe('payments/index', () => {
+     });
+   });
+ 
+-  describe('#cancelSubscription', () => {
+-    beforeEach(() => {
+-      data = { user };
+-    });
+-
+-    context('Canceling a subscription for self', () => {
+-      it('adds a month termination date by default', async () => {
+-        await api.cancelSubscription(data);
+-
+-        let now = new Date();
+-        let daysTillTermination = moment(user.purchased.plan.dateTerminated).diff(now, 'days');
+-
+-        expect(daysTillTermination).to.be.within(29, 30); // 1 month +/- 1 days
+-      });
+-
+-      it('adds extraMonths to dateTerminated value', async () => {
+-        user.purchased.plan.extraMonths = 2;
+-
+-        await api.cancelSubscription(data);
+-
+-        let now = new Date();
+-        let daysTillTermination = moment(user.purchased.plan.dateTerminated).diff(now, 'days');
+-
+-        expect(daysTillTermination).to.be.within(89, 90); // 3 months +/- 1 days
+-      });
+-
+-      it('handles extra month fractions', async () => {
+-        user.purchased.plan.extraMonths = 0.3;
+-
+-        await api.cancelSubscription(data);
+-
+-        let now = new Date();
+-        let daysTillTermination = moment(user.purchased.plan.dateTerminated).diff(now, 'days');
+-
+-        expect(daysTillTermination).to.be.within(38, 39); // should be about 1 month + 1/3 month
+-      });
+-
+-      it('terminates at next billing date if it exists', async () => {
+-        data.nextBill = moment().add({ days: 15 });
+-
+-        await api.cancelSubscription(data);
+-
+-        let now = new Date();
+-        let daysTillTermination = moment(user.purchased.plan.dateTerminated).diff(now, 'days');
+-
+-        expect(daysTillTermination).to.be.within(13, 15);
+-      });
+-
+-      it('terminates at next billing date even if dateUpdated is prior to now', async () => {
+-        data.nextBill = moment().add({ days: 15 });
+-        data.user.purchased.plan.dateUpdated = moment().subtract({ days: 10 });
+-
+-        await api.cancelSubscription(data);
+-
+-        let now = new Date();
+-        let daysTillTermination = moment(user.purchased.plan.dateTerminated).diff(now, 'days');
+-
+-        expect(daysTillTermination).to.be.within(13, 15);
+-      });
+-
+-      it('resets plan.extraMonths', async () => {
+-        user.purchased.plan.extraMonths = 5;
+-
+-        await api.cancelSubscription(data);
+-
+-        expect(user.purchased.plan.extraMonths).to.eql(0);
+-      });
+-
+-      it('sends an email', async () => {
+-        await api.cancelSubscription(data);
+-
+-        expect(sender.sendTxn).to.be.calledOnce;
+-        expect(sender.sendTxn).to.be.calledWith(user, 'cancel-subscription');
+-      });
+-    });
+-  });
+-
+   describe('#buyGems', () => {
+     beforeEach(() => {
+       data = {
+diff --git a/test/api/unit/models/user.test.js b/test/api/unit/models/user.test.js
+index 24652fa7b6..1e82b58f97 100644
+--- a/test/api/unit/models/user.test.js
++++ b/test/api/unit/models/user.test.js
+@@ -299,13 +299,13 @@ describe('User Model', () => {
+       expect(await user.canGetGems()).to.equal(true);
+     });
+ 
+-    it('returns false if user is part of a group with a subscription and canGetGems: false', async () => {
++    it('returns true even if user is part of a group with a subscription and canGetGems: false', async () => {
+       user.guilds.push(group._id);
+       user.purchased.plan.customerId = 'group-plan';
+       group.purchased.plan.customerId = 123;
+       group.leaderOnly.getGems = true;
+       await group.save();
+-      expect(await user.canGetGems()).to.equal(false);
++      expect(await user.canGetGems()).to.equal(true);
+     });
+   });
+ 
+diff --git a/test/api/v3/integration/challenges/POST-challenges_challengeId_winner_winnerId.test.js b/test/api/v3/integration/challenges/POST-challenges_challengeId_winner_winnerId.test.js
+index 41c655b88c..76dd856514 100644
+--- a/test/api/v3/integration/challenges/POST-challenges_challengeId_winner_winnerId.test.js
++++ b/test/api/v3/integration/challenges/POST-challenges_challengeId_winner_winnerId.test.js
+@@ -115,7 +115,7 @@ describe('POST /challenges/:challengeId/winner/:winnerId', () => {
+       await expect(winningUser.sync()).to.eventually.have.property('balance', oldBalance + challenge.prize / 4);
+     });
+ 
+-    it('doesn\'t gives winner gems if group policy prevents it', async () => {
++    it('gives winner gems even if group policy prevents it', async () => {
+       let oldBalance = winningUser.balance;
+       let oldLeaderBalance = (await groupLeader.sync()).balance;
+ 
+@@ -131,8 +131,8 @@ describe('POST /challenges/:challengeId/winner/:winnerId', () => {
+ 
+       await sleep(0.5);
+ 
+-      await expect(winningUser.sync()).to.eventually.have.property('balance', oldBalance);
+-      await expect(groupLeader.sync()).to.eventually.have.property('balance', oldLeaderBalance + challenge.prize / 4);
++      await expect(winningUser.sync()).to.eventually.have.property('balance', oldBalance + challenge.prize / 4);
++      await expect(groupLeader.sync()).to.eventually.have.property('balance', oldLeaderBalance);
+     });
+ 
+     it('doesn\'t refund gems to group leader', async () => {
+diff --git a/test/api/v3/integration/user/DELETE-user.test.js b/test/api/v3/integration/user/DELETE-user.test.js
+index 1e70c3486e..1694349e53 100644
+--- a/test/api/v3/integration/user/DELETE-user.test.js
++++ b/test/api/v3/integration/user/DELETE-user.test.js
+@@ -70,16 +70,13 @@ describe('DELETE /user', () => {
+       });
+     });
+ 
+-    it('returns an error if user has active subscription', async () => {
++    it('returns no error if user has active subscription', async () => {
+       let userWithSubscription = await generateUser({'purchased.plan.customerId': 'fake-customer-id'});
+ 
+-      await expect(userWithSubscription.del('/user', {
++      await userWithSubscription.del('/user', {
+         password,
+-      })).to.be.rejected.and.to.eventually.eql({
+-        code: 401,
+-        error: 'NotAuthorized',
+-        message: t('cannotDeleteActiveAccount'),
+       });
++      await expect(checkExistence('users', userWithSubscription._id)).to.eventually.eql(false);
+     });
+ 
+     it('deletes the user\'s tasks', async () => {
+diff --git a/test/api/v3/integration/user/POST-user_purchase.test.js b/test/api/v3/integration/user/POST-user_purchase.test.js
+index b1d3749256..9160226c5d 100644
+--- a/test/api/v3/integration/user/POST-user_purchase.test.js
++++ b/test/api/v3/integration/user/POST-user_purchase.test.js
+@@ -1,7 +1,6 @@
+ import {
+   generateUser,
+   createAndPopulateGroup,
+-  translate as t,
+ } from '../../../../helpers/api-integration/v3';
+ 
+ describe('POST /user/purchase/:type/:key', () => {
+@@ -17,15 +16,6 @@ describe('POST /user/purchase/:type/:key', () => {
+ 
+   // More tests in common code unit tests
+ 
+-  it('returns an error when key is not provided', async () => {
+-    await expect(user.post('/user/purchase/gems/gem'))
+-      .to.eventually.be.rejected.and.eql({
+-        code: 401,
+-        error: 'NotAuthorized',
+-        message: t('mustSubscribeToPurchaseGems'),
+-      });
+-  });
+-
+   it('purchases a gem item', async () => {
+     await user.post(`/user/purchase/${type}/${key}`);
+     await user.sync();
+@@ -69,7 +59,7 @@ describe('POST /user/purchase/:type/:key', () => {
+     expect(groupLeader.balance).to.equal(oldBalance + 0.25);
+   });
+ 
+-  it('cannot convert gold to gems if the group plan prevents it', async () => {
++  it('can convert gold to gems even if the group plan prevents it', async () => {
+     let { group, members } = await createAndPopulateGroup({
+       groupDetails: {
+         name: 'test',
+@@ -88,15 +78,10 @@ describe('POST /user/purchase/:type/:key', () => {
+       'purchased.plan.customerId': 'group-plan',
+       'stats.gp': 1000,
+     });
+-    await expect(members[0].post('/user/purchase/gems/gem'))
+-      .to.eventually.be.rejected.and.eql({
+-        code: 401,
+-        error: 'NotAuthorized',
+-        message: t('groupPolicyCannotGetGems'),
+-      });
++    await members[0].post('/user/purchase/gems/gem');
+ 
+     await members[0].sync();
+-    expect(members[0].balance).to.equal(oldBalance);
++    expect(members[0].balance).to.equal(oldBalance + 0.25);
+   });
+ 
+   describe('bulk purchasing', () => {
+diff --git a/website/server/libs/auth/index.js b/website/server/libs/auth/index.js
+index 0ec22f525c..97867e40b5 100644
+--- a/website/server/libs/auth/index.js
++++ b/website/server/libs/auth/index.js
+@@ -121,6 +121,13 @@ async function registerLocal (req, res, { isV3 = false }) {
+         passwordHashMethod: 'bcrypt',
+       },
+     },
++    'purchased.plan': {
++      planId: 'basic',
++      customerId: 'habitrpg',
++      dateCreated: new Date(),
++      dateUpdated: new Date(),
++      gemsBought: 0,
++    },
+     preferences: {
+       language: req.language,
+     },
+diff --git a/website/server/libs/payments/groupPayments.js b/website/server/libs/payments/groupPayments.js
+index e3413ed12a..cd6aeb45f4 100644
+--- a/website/server/libs/payments/groupPayments.js
++++ b/website/server/libs/payments/groupPayments.js
+@@ -10,8 +10,6 @@ import {
+   sendTxn as txnEmail,
+ } from '../email';
+ 
+-const JOINED_GROUP_PLAN = 'joined group plan';
+-
+ function _dateDiff (earlyDate, lateDate) {
+   if (!earlyDate || !lateDate || moment(lateDate).isBefore(earlyDate)) return 0;
+ 
+@@ -52,7 +50,6 @@ async function addSubToGroupUser (member, group) {
+   // stored externally and so their values must not be changed.
+   const EMAIL_TEMPLATE_SUBSCRIPTION_TYPE_GROUP_PLAN = 'group_plan_free_subscription';
+   const EMAIL_TEMPLATE_SUBSCRIPTION_TYPE_LIFETIME_FREE = 'lifetime_free_subscription';
+-  const EMAIL_TEMPLATE_SUBSCRIPTION_TYPE_NORMAL = 'normal_subscription';
+   const EMAIL_TEMPLATE_SUBSCRIPTION_TYPE_UNKNOWN = 'unknown_type_of_subscription';
+   const EMAIL_TEMPLATE_SUBSCRIPTION_TYPE_NONE = 'no_subscription';
+ 
+@@ -115,11 +112,6 @@ async function addSubToGroupUser (member, group) {
+       return;
+     }
+ 
+-    if (member.hasNotCancelled()) {
+-      await member.cancelSubscription({cancellationReason: JOINED_GROUP_PLAN});
+-      previousSubscriptionType = EMAIL_TEMPLATE_SUBSCRIPTION_TYPE_NORMAL;
+-    }
+-
+     let today = new Date();
+     plan = member.purchased.plan.toObject();
+     let extraMonths = Number(plan.extraMonths);
+diff --git a/website/server/libs/payments/subscriptions.js b/website/server/libs/payments/subscriptions.js
+index f01602701a..d0f7d9a397 100644
+--- a/website/server/libs/payments/subscriptions.js
++++ b/website/server/libs/payments/subscriptions.js
+@@ -15,9 +15,6 @@ import {
+ } from '../errors';
+ import shared from '../../../common';
+ 
+-// @TODO: Abstract to shared/constant
+-const JOINED_GROUP_PLAN = 'joined group plan';
+-
+ function revealMysteryItems (user) {
+   const pushedItems = [];
+ 
+@@ -208,12 +205,7 @@ async function cancelSubscription (data) {
+ 
+     await this.cancelGroupUsersSubscription(group);
+   } else {
+-    // cancelling a user subscription
+-    plan = data.user.purchased.plan;
+-    emailType = 'cancel-subscription';
+-    // When cancelling because the user joined a group plan, no cancel-subscription email is sent
+-    // because the group-member-join email says the subscription is cancelled.
+-    if (data.cancellationReason && data.cancellationReason === JOINED_GROUP_PLAN) sendEmail = false;
++    return;
+   }
+ 
+   let now = moment();
+diff --git a/website/server/models/user/methods.js b/website/server/models/user/methods.js
+index 14ccb1fee8..1a12c34db8 100644
+--- a/website/server/models/user/methods.js
++++ b/website/server/models/user/methods.js
+@@ -15,7 +15,6 @@ import {
+ import { defaults, map, flatten, flow, compact, uniq, partialRight } from 'lodash';
+ import { model as UserNotification } from '../userNotification';
+ import schema from './schema';
+-import payments from '../../libs/payments/payments';
+ import * as inboxLib from '../../libs/inbox';
+ 
+ const daysSince = common.daysSince;
+@@ -235,27 +234,6 @@ schema.statics.addComputedStatsToJSONObj = function addComputedStatsToUserJSONOb
+   return userStatsJSON;
+ };
+ 
+-/**
+- * Cancels a subscription.
+- *
+- * @param  options
+- * @param  options.user  The user object who is purchasing
+- * @param  options.groupId  The id of the group purchasing a subscription
+- * @param  options.headers  The request headers
+- * @param  options.cancellationReason  A text string to control sending an email
+- *
+- * @return a Promise from api.cancelSubscription()
+- */
+-// @TODO: There is currently a three way relation between the user, payment methods and the payment helper
+-// This creates some odd Dependency Injection issues. To counter that, we use the user as the third layer
+-// To negotiate between the payment providers and the payment helper (which probably has too many responsiblities)
+-// In summary, currently is is best practice to use this method to cancel a user subscription, rather than calling the
+-// payment helper.
+-schema.methods.cancelSubscription = async function cancelSubscription (options = {}) {
+-  options.user = this;
+-  return await payments.cancelSubscription(options);
+-};
+-
+ schema.methods.daysUserHasMissed = function daysUserHasMissed (now, req = {}) {
+   // If the user's timezone has changed (due to travel or daylight savings),
+   // cron can be triggered twice in one day, so we check for that and use
+@@ -361,18 +339,7 @@ async function getUserGroupData (user) {
+ // User is allowed to buy gems if no group has `leaderOnly.getGems` === true or if
+ // its the group leader
+ schema.methods.canGetGems = async function canObtainGems () {
+-  const user = this;
+-  const plan = user.purchased.plan;
+-
+-  if (!user.isSubscribed() || plan.customerId !== payments.constants.GROUP_PLAN_CUSTOMER_ID) {
+-    return true;
+-  }
+-
+-  const groups = await getUserGroupData(user);
+-
+-  return groups.every(g => {
+-    return !g.isSubscribed() || g.leader === user._id || g.leaderOnly.getGems !== true;
+-  });
++  return true;
+ };
+ 
+ schema.methods.isMemberOfGroupPlan = async function isMemberOfGroupPlan () {

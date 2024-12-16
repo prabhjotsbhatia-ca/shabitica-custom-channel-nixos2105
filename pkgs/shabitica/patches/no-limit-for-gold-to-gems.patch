@@ -1,0 +1,216 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Fri Mar 30 02:41:52 2018 +0200
+
+    Don't limit the amount of gems that can be bought
+    
+    Everybody has a free lifetime subscription, so there really is no reason
+    to limit the amount of gems that can be bought.
+    
+    I assume limit was originally introduced only because people bought a
+    subscription, got a lot of gems and then cancelled the payment of the
+    subscription.
+    
+    So this really isn't something that we have to defend against :-)
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: no-limit-for-gold-to-gems.patch
+
+diff --git a/test/common/ops/buy/buyGem.js b/test/common/ops/buy/buyGem.js
+index 4ae96a55b7..22b15739bc 100644
+--- a/test/common/ops/buy/buyGem.js
++++ b/test/common/ops/buy/buyGem.js
+@@ -102,19 +102,6 @@ describe('shared.ops.buyGem', () => {
+         }
+       });
+ 
+-      it('prevents user that have reached the conversion cap from buying gems', (done) => {
+-        user.stats.gp = goldPoints;
+-        user.purchased.plan.gemsBought = gemsBought;
+-
+-        try {
+-          buyGem(user, {params: {type: 'gems', key: 'gem'}});
+-        } catch (err) {
+-          expect(err).to.be.an.instanceof(NotAuthorized);
+-          expect(err.message).to.equal(i18n.t('reachedGoldToGemCap', {convCap: planGemLimits.convCap}));
+-          done();
+-        }
+-      });
+-
+       it('prevents user from buying an invalid quantity', (done) => {
+         user.stats.gp = goldPoints;
+         user.purchased.plan.gemsBought = gemsBought;
+diff --git a/website/client/components/shops/buyModal.vue b/website/client/components/shops/buyModal.vue
+index 2a230e04b3..15d719f719 100644
+--- a/website/client/components/shops/buyModal.vue
++++ b/website/client/components/shops/buyModal.vue
+@@ -56,13 +56,6 @@
+             span.svg-icon.inline.icon-32(aria-hidden="true", v-html="icons[getPriceClass()]")
+             span.cost(:class="getPriceClass()") {{ item.value }}
+ 
+-        .gems-left(v-if='item.key === "gem"')
+-          strong(v-if='gemsLeft > 0') {{ gemsLeft }} {{ $t('gemsRemaining') }}
+-          strong(v-if='gemsLeft === 0') {{ $t('maxBuyGems') }}
+-
+-        div(v-if='attemptingToPurchaseMoreGemsThanAreLeft')
+-          | {{$t('notEnoughGemsToBuy')}}
+-
+         button.btn.btn-primary(
+           @click="purchaseGems()",
+           v-if="getPriceClass() === 'gems' && !this.enoughCurrency(getPriceClass(), item.value * selectedAmountToBuy)"
+@@ -71,7 +64,7 @@
+         button.btn.btn-primary(
+           @click="buyItem()",
+           v-else,
+-          :disabled='item.key === "gem" && gemsLeft === 0 || attemptingToPurchaseMoreGemsThanAreLeft || numberInvalid',
++          :disabled='numberInvalid',
+           :class="{'notEnough': !preventHealthPotion || !this.enoughCurrency(getPriceClass(), item.value * selectedAmountToBuy)}"
+         ) {{ $t('buyNow') }}
+ 
+@@ -255,10 +248,6 @@
+       margin: 10px 0 24px;
+     }
+ 
+-    .gems-left {
+-      margin-top: .5em;
+-    }
+-
+     .free-rebirth {
+       background-color: $yellow-5;
+       color: $white;
+@@ -275,7 +264,6 @@
+ 
+ <script>
+   import spellsMixin from 'client/mixins/spells';
+-  import planGemLimits from 'common/script/libs/planGemLimits';
+   import numberInvalid from 'client/mixins/numberInvalid';
+ 
+   import svgClose from 'assets/svg/close.svg';
+@@ -372,14 +360,6 @@
+       limitedString () {
+         return this.$t('limitedOffer', {date: moment(seasonalShopConfig.dateRange.end).format('LL')});
+       },
+-      gemsLeft () {
+-        if (!this.user.purchased.plan) return 0;
+-        return planGemLimits.convCap + this.user.purchased.plan.consecutive.gemCapExtra - this.user.purchased.plan.gemsBought;
+-      },
+-      attemptingToPurchaseMoreGemsThanAreLeft () {
+-        if (this.item && this.item.key && this.item.key === 'gem' && this.selectedAmountToBuy > this.gemsLeft) return true;
+-        return false;
+-      },
+       notEnoughCurrency () {
+         return !this.enoughCurrency(this.getPriceClass(), this.item.value * this.selectedAmountToBuy);
+       },
+diff --git a/website/client/components/shops/market/categoryItem.vue b/website/client/components/shops/market/categoryItem.vue
+index bdd4546ca9..50a453312a 100644
+--- a/website/client/components/shops/market/categoryItem.vue
++++ b/website/client/components/shops/market/categoryItem.vue
+@@ -5,8 +5,6 @@ div
+     :show="true",
+     :count="count"
+   )
+-  .badge.badge-pill.badge-purple.gems-left(v-if='item.key === "gem"')
+-    | {{ gemsLeft }}
+   span.badge.badge-pill.badge-item.badge-svg(
+     :class="{'item-selected-badge': item.pinned, 'hide': !item.pinned}",
+     @click.prevent.stop="togglePinned(item)"
+@@ -19,7 +17,6 @@ import { mapState } from 'client/libs/store';
+ import CountBadge from 'client/components/ui/countBadge';
+ 
+ import svgPin from 'assets/svg/pin.svg';
+-import planGemLimits from 'common/script/libs/planGemLimits';
+ import pinUtils from '../../../mixins/pinUtils';
+ 
+ export default {
+@@ -43,10 +40,6 @@ export default {
+     count () {
+       return this.userItems[this.item.purchaseType][this.item.key];
+     },
+-    gemsLeft () {
+-      if (!this.user.purchased.plan) return 0;
+-      return planGemLimits.convCap + this.user.purchased.plan.consecutive.gemCapExtra - this.user.purchased.plan.gemsBought;
+-    },
+   },
+ };
+ </script>
+diff --git a/website/client/components/shops/market/categoryRow.vue b/website/client/components/shops/market/categoryRow.vue
+index 9f4b96acd6..d9b8ec7a63 100644
+--- a/website/client/components/shops/market/categoryRow.vue
++++ b/website/client/components/shops/market/categoryRow.vue
+@@ -7,7 +7,6 @@ div.items
+     :popoverPosition="'top'",
+     @click="itemSelected(item)")
+     span(slot="popoverContent")
+-      strong(v-if='item.key === "gem" && gemsLeft === 0') {{ $t('maxBuyGems') }}
+       h4.popover-content-title {{ item.text }}
+     template(slot="itemBadge", slot-scope="ctx")
+       category-item(:item='ctx.item')
+@@ -16,7 +15,6 @@ div.items
+ <script>
+   import { mapState } from 'client/libs/store';
+   import pinUtils from 'client/mixins/pinUtils';
+-  import planGemLimits from 'common/script/libs/planGemLimits';
+ 
+   import ShopItem from '../shopItem';
+   import CategoryItem from './categoryItem';
+@@ -39,10 +37,6 @@ div.items
+         userItems: 'user.data.items',
+         userStats: 'user.data.stats',
+       }),
+-      gemsLeft () {
+-        if (!this.user.purchased.plan) return 0;
+-        return planGemLimits.convCap + this.user.purchased.plan.consecutive.gemCapExtra - this.user.purchased.plan.gemsBought;
+-      },
+       sortedMarketItems () {
+         let result = _map(this.category.items, (e) => {
+           return {
+diff --git a/website/client/components/shops/market/index.vue b/website/client/components/shops/market/index.vue
+index fb2f332da8..fc2e8163b5 100644
+--- a/website/client/components/shops/market/index.vue
++++ b/website/client/components/shops/market/index.vue
+@@ -115,11 +115,6 @@
+       }
+     }
+   }
+-
+-  .market .gems-left {
+-    right: -.5em;
+-    top: -.5em;
+-  }
+ </style>
+ 
+ 
+diff --git a/website/common/script/ops/buy/buyGem.js b/website/common/script/ops/buy/buyGem.js
+index 81fa5be9da..08dc3ee2f7 100644
+--- a/website/common/script/ops/buy/buyGem.js
++++ b/website/common/script/ops/buy/buyGem.js
+@@ -33,12 +33,6 @@ export class BuyGemOperation extends AbstractGoldItemOperation {
+     let key = this.key = get(req, 'params.key');
+     if (!key) throw new BadRequest(this.i18n('missingKeyParam'));
+ 
+-    let convCap = planGemLimits.convCap;
+-    convCap += user.purchased.plan.consecutive.gemCapExtra;
+-
+-    // todo better name?
+-    this.convCap = convCap;
+-
+     this.canUserPurchase(user);
+   }
+ 
+@@ -48,17 +42,6 @@ export class BuyGemOperation extends AbstractGoldItemOperation {
+     }
+ 
+     super.canUserPurchase(user, item);
+-
+-    if (user.purchased.plan.gemsBought >= this.convCap) {
+-      throw new NotAuthorized(this.i18n('reachedGoldToGemCap', {convCap: this.convCap}));
+-    }
+-
+-    if (user.purchased.plan.gemsBought + this.quantity > this.convCap) {
+-      throw new NotAuthorized(this.i18n('reachedGoldToGemCapQuantity', {
+-        convCap: this.convCap,
+-        quantity: this.quantity,
+-      }));
+-    }
+   }
+ 
+   executeChanges (user, item) {

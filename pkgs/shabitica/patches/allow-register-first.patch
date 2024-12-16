@@ -1,0 +1,40 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Tue Mar 27 05:37:23 2018 +0200
+
+    Allow to register if the instance has no users
+    
+    Our instance is invite-only, so there needs to be a first user who can
+    invite other people.
+    
+    Other than that it also makes it more convenient for test instances,
+    because we don't need to use a database command to create the first
+    user, where the data needed for the user entry might change between
+    releases.
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: allow-register-first.patch
+
+diff --git a/website/server/libs/auth/index.js b/website/server/libs/auth/index.js
+index 3adf355408..a11e9042db 100644
+--- a/website/server/libs/auth/index.js
++++ b/website/server/libs/auth/index.js
+@@ -138,15 +138,17 @@ async function registerLocal (req, res, { isV3 = false }) {
+     },
+   };
+ 
++  let hasUsers = Boolean(await User.findOne().exec());
++
+   newUser = new User(newUser);
+   newUser.registeredThrough = req.headers['x-client']; // Not saved, used to create the correct tasks based on the device used
+ 
+   // we check for partyInvite for backward compatibility
+   if (req.query.groupInvite || req.query.partyInvite) {
+     let success = await _handleGroupInvitation(newUser, req.query.groupInvite || req.query.partyInvite);
+-    if (!success)
++    if (hasUsers && !success)
+       throw new NotAuthorized(res.t('inviteOnly'));
+-  } else {
++  } else if (hasUsers) {
+     throw new NotAuthorized(res.t('inviteOnly'));
+   }
+ 

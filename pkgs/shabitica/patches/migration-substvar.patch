@@ -1,0 +1,23 @@
+Author: aszlig <aszlig@nix.build>
+Date:   Wed May 2 03:15:04 2018 +0200
+
+    Use substvar in migration runner
+    
+    This is so that we can later replace this using stdenv's substitute.
+    
+    Signed-off-by: aszlig <aszlig@nix.build>
+    Filename: migration-substvar.patch
+
+diff --git a/migrations/migration-runner.js b/migrations/migration-runner.js
+index 39cec8b1aa..38901eda7a 100644
+--- a/migrations/migration-runner.js
++++ b/migrations/migration-runner.js
+@@ -17,7 +17,7 @@ function setUpServer () {
+ setUpServer();
+ 
+ // Replace this with your migration
+-const processUsers = require('');
++const processUsers = require('@migrationScript@');
+ processUsers()
+   .then(function success () {
+     process.exit(0);
